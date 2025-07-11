@@ -1,104 +1,126 @@
 import javafx.application.Application;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
-public class CalculatorApp extends Application {
+public class SimpleCalculator extends Application {
 
     private TextField display = new TextField();
-    private double num1 = 0;
+    private String operand1 = "";
     private String operator = "";
-    private boolean startNewNumber = true;
+    private boolean startNewInput = true;
 
     @Override
-    public void start(Stage primaryStage) {
+    public void start(Stage stage) {
         display.setEditable(false);
-        display.setStyle("-fx-font-size: 20px; -fx-padding: 10px;");
         display.setPrefHeight(50);
+        display.setStyle("-fx-font-size: 20px;");
 
+        GridPane grid = createGrid();
+
+        VBox root = new VBox(10, display, grid);
+        root.setPadding(new Insets(20));
+        root.setAlignment(Pos.CENTER);
+
+        Scene scene = new Scene(root, 320, 450);
+        stage.setTitle("Simple Calculator");
+        stage.setScene(scene);
+        stage.show();
+    }
+
+    private GridPane createGrid() {
         GridPane grid = new GridPane();
-        grid.setPadding(new Insets(10));
-        grid.setVgap(5);
-        grid.setHgap(5);
+        grid.setVgap(10);
+        grid.setHgap(10);
+        grid.setAlignment(Pos.CENTER);
 
-        String[] buttons = {
-            "7", "8", "9", "/", 
-            "4", "5", "6", "*", 
-            "1", "2", "3", "-", 
-            "0", "C", "=", "+"
+        String[][] buttons = {
+            {"C", "←", "±", "%"},
+            {"7", "8", "9", "/"},
+            {"4", "5", "6", "*"},
+            {"1", "2", "3", "-"},
+            {"0", ".", "=", "+"}
         };
 
-        int row = 0, col = 0;
-        for (String text : buttons) {
-            Button btn = new Button(text);
-            btn.setPrefSize(60, 60);
-            btn.setStyle("-fx-font-size: 16px;");
-            btn.setOnAction(e -> handleInput(text));
-            grid.add(btn, col, row);
-
-            col++;
-            if (col > 3) {
-                col = 0;
-                row++;
+        for (int row = 0; row < buttons.length; row++) {
+            for (int col = 0; col < buttons[row].length; col++) {
+                String label = buttons[row][col];
+                Button btn = new Button(label);
+                btn.setPrefSize(60, 60);
+                btn.setStyle("-fx-font-size: 18px;");
+                btn.setOnAction(e -> handleInput(label));
+                grid.add(btn, col, row);
             }
         }
 
-        VBox root = new VBox(10, display, grid);
-        root.setPadding(new Insets(10));
-
-        Scene scene = new Scene(root);
-        scene.setOnKeyPressed(e -> {
-            String key = e.getText();
-            if (key.matches("[0-9]")) handleInput(key);
-            else if ("+-*/".contains(key)) handleInput(key);
-            else if (e.getCode().toString().equals("ENTER")) handleInput("=");
-            else if (key.equalsIgnoreCase("c")) handleInput("C");
-        });
-
-        primaryStage.setTitle("JavaFX Calculator");
-        primaryStage.setScene(scene);
-        primaryStage.show();
+        return grid;
     }
 
-    private void handleInput(String text) {
-        switch (text) {
-            case "C":
+    private void handleInput(String value) {
+        switch (value) {
+            case "C" -> {
                 display.clear();
-                num1 = 0;
+                operand1 = "";
                 operator = "";
-                startNewNumber = true;
-                break;
-
-            case "=":
+                startNewInput = true;
+            }
+            case "←" -> {
+                String text = display.getText();
+                if (!text.isEmpty()) {
+                    display.setText(text.substring(0, text.length() - 1));
+                }
+            }
+            case "±" -> {
+                String text = display.getText();
+                if (!text.isEmpty()) {
+                    if (text.startsWith("-")) {
+                        display.setText(text.substring(1));
+                    } else {
+                        display.setText("-" + text);
+                    }
+                }
+            }
+            case "%" -> {
                 try {
+                    double val = Double.parseDouble(display.getText());
+                    display.setText(formatResult(val / 100));
+                } catch (Exception e) {
+                    display.setText("Error");
+                }
+            }
+            case "+", "-", "*", "/" -> {
+                operand1 = display.getText();
+                operator = value;
+                startNewInput = true;
+            }
+            case "=" -> {
+                try {
+                    double num1 = Double.parseDouble(operand1);
                     double num2 = Double.parseDouble(display.getText());
                     double result = calculate(num1, num2, operator);
-                    display.setText(String.valueOf(result));
-                    startNewNumber = true;
-                } catch (NumberFormatException | ArithmeticException ex) {
+                    display.setText(formatResult(result));
+                    startNewInput = true;
+                } catch (Exception e) {
                     display.setText("Error");
                 }
-                break;
-
-            case "+": case "-": case "*": case "/":
-                try {
-                    num1 = Double.parseDouble(display.getText());
-                    operator = text;
-                    startNewNumber = true;
-                } catch (NumberFormatException ex) {
-                    display.setText("Error");
+            }
+            case "." -> {
+                if (!display.getText().contains(".")) {
+                    display.appendText(".");
                 }
-                break;
-
-            default: // numbers
-                if (startNewNumber) {
+            }
+            default -> {
+                if (startNewInput) {
                     display.clear();
-                    startNewNumber = false;
+                    startNewInput = false;
                 }
-                display.appendText(text);
-                break;
+                display.appendText(value);
+            }
         }
     }
 
@@ -107,12 +129,16 @@ public class CalculatorApp extends Application {
             case "+" -> a + b;
             case "-" -> a - b;
             case "*" -> a * b;
-            case "/" -> {
-                if (b == 0) throw new ArithmeticException("Divide by zero");
-                yield a / b;
-            }
+            case "/" -> (b == 0) ? Double.NaN : a / b;
             default -> 0;
         };
+    }
+
+    private String formatResult(double result) {
+        if (result == (long) result)
+            return String.format("%d", (long) result);
+        else
+            return String.format("%.6f", result).replaceAll("0+$", "").replaceAll("\\.$", "");
     }
 
     public static void main(String[] args) {
